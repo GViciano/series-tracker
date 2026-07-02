@@ -25,7 +25,8 @@ export async function searchShows(query) {
   const res = await fetch(url('/search/tv', { query }))
   if (!res.ok) throw new Error('Error buscando series en TMDB')
   const data = await res.json()
-  return data.results ?? []
+  const results = data.results ?? []
+  return results.sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0))
 }
 
 export async function getShowDetails(tmdbId) {

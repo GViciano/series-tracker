@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
-import { ArrowLeft, Play } from 'lucide-react'
+import { ArrowLeft, Play, XCircle, CheckCheck } from 'lucide-react'
 import { getShowDetails, getAllEpisodes, stillUrl, posterUrl } from '../lib/tmdb'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -102,6 +102,40 @@ export default function ShowDetail({ show, onBack, onChanged }) {
     onChanged?.()
   }
 
+  async function markSeasonWatched(seasonEps) {
+    const toInsert = seasonEps
+      .filter(ep => !watchedSet.has(`${ep.season_number}-${ep.episode_number}`))
+      .map(ep => ({
+        user_id: user.id,
+        tracked_show_id: show.id,
+        season_number: ep.season_number,
+        episode_number: ep.episode_number,
+      }))
+    if (toInsert.length === 0) return
+
+    await supabase.from('watched_episodes').insert(toInsert)
+
+    const newSet = new Set(watchedSet)
+    toInsert.forEach(e => newSet.add(`${e.season_number}-${e.episode_number}`))
+    setWatchedSet(newSet)
+
+    const totalWatched = newSet.size
+    const status = details && totalWatched >= details.number_of_episodes ? 'completed' : 'watching'
+
+    await supabase.from('tracked_shows')
+      .update({ status, last_watched_at: new Date().toISOString() })
+      .eq('id', show.id)
+
+    onChanged?.()
+  }
+
+  async function dropShow() {
+    if (!window.confirm(`¿Abandonar "${show.name}"? Se moverá a la categoría "Abandonada".`)) return
+    await supabase.from('tracked_shows').update({ status: 'dropped' }).eq('id', show.id)
+    onChanged?.()
+    onBack()
+  }
+
   if (loading) return <p>Cargando episodios...</p>
   if (error) return <p className="error">{error}</p>
 
@@ -116,6 +150,14 @@ export default function ShowDetail({ show, onBack, onChanged }) {
           <p>{watchedSet.size} / {details?.number_of_episodes ?? show.total_episodes} episodios vistos</p>
         </div>
       </div>
+
+      {show.status !== 'dropped' && (
+        <div className="detail-actions">
+          <button className="drop-show-btn" onClick={dropShow}>
+            <XCircle size={14} /> Abandonar serie
+          </button>
+        </div>
+      )}
 
       {nextEpisode ? (
         <div className="next-episode-banner">
@@ -139,15 +181,25 @@ export default function ShowDetail({ show, onBack, onChanged }) {
 
       {Object.entries(seasons)
         .sort(([a], [b]) => Number(a) - Number(b))
-        .map(([seasonNum, eps]) => (
+        .map(([seasonNum, eps]) => {
+          const watchedInSeason = eps.filter(e => watchedSet.has(`${e.season_number}-${e.episode_number}`)).length
+          const seasonComplete = watchedInSeason === eps.length
+          return (
           <div key={seasonNum} className="season-block">
-            <button
-              className="season-toggle"
-              onClick={() => setExpandedSeason(expandedSeason === Number(seasonNum) ? null : Number(seasonNum))}
-            >
-              Temporada {seasonNum}
-              <span>{eps.filter(e => watchedSet.has(`${e.season_number}-${e.episode_number}`)).length}/{eps.length}</span>
-            </button>
+            <div className="season-header">
+              <button
+                className="season-toggle"
+                onClick={() => setExpandedSeason(expandedSeason === Number(seasonNum) ? null : Number(seasonNum))}
+              >
+                Temporada {seasonNum}
+                <span>{watchedInSeason}/{eps.length}</span>
+              </button>
+              {!seasonComplete && (
+                <button className="season-mark-btn" onClick={() => markSeasonWatched(eps)} title="Marcar toda la temporada como vista">
+                  <CheckCheck size={14} />
+                </button>
+              )}
+            </div>
             {expandedSeason === Number(seasonNum) && (
               <div className="episode-list">
                 {eps.sort((a, b) => a.episode_number - b.episode_number).map(ep => {
@@ -169,7 +221,8 @@ export default function ShowDetail({ show, onBack, onChanged }) {
               </div>
             )}
           </div>
-        ))}
+          )
+        })}
     </div>
   )
 }

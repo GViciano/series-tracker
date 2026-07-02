@@ -1,5 +1,4 @@
-import { useState } from 'react'
-import { Search } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
 import { searchShows, getShowDetails, posterUrl } from '../lib/tmdb'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -11,21 +10,29 @@ export default function ShowSearch({ onAdded }) {
   const [busy, setBusy] = useState(false)
   const [addingId, setAddingId] = useState(null)
   const [error, setError] = useState(null)
+  const debounceRef = useRef(null)
 
-  async function handleSearch(e) {
-    e.preventDefault()
-    setError(null)
-    if (!query.trim()) return
-    setBusy(true)
-    try {
-      const res = await searchShows(query)
-      setResults(res)
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setBusy(false)
+  // Autocompletado: busca automáticamente mientras se escribe, con debounce
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    if (!query.trim()) {
+      setResults([])
+      return
     }
-  }
+    setBusy(true)
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res = await searchShows(query)
+        setResults(res)
+        setError(null)
+      } catch (err) {
+        setError(err.message)
+      } finally {
+        setBusy(false)
+      }
+    }, 350)
+    return () => clearTimeout(debounceRef.current)
+  }, [query])
 
   async function handleAdd(show) {
     setAddingId(show.id)
@@ -55,20 +62,21 @@ export default function ShowSearch({ onAdded }) {
 
   return (
     <div className="show-search">
-      <form onSubmit={handleSearch} className="search-form">
+      <div className="search-form">
         <input
           type="text"
           placeholder="Buscar serie (ej. Breaking Bad)..."
           value={query}
           onChange={e => setQuery(e.target.value)}
+          autoFocus
         />
-        <button type="submit" disabled={busy}>
-          {busy ? 'Buscando...' : <><Search size={14} style={{ marginRight: 6, verticalAlign: -2 }} />Buscar</>}
-        </button>
-      </form>
+      </div>
       {error && <p className="error">{error}</p>}
-      {results.length === 0 && !busy && (
-        <div className="search-empty">Busca una serie por su título para añadirla a tu lista</div>
+      {!query.trim() && (
+        <div className="search-empty">Escribe el título de una serie para ver sugerencias, ordenadas por popularidad</div>
+      )}
+      {query.trim() && !busy && results.length === 0 && (
+        <div className="search-empty">Sin resultados para "{query}"</div>
       )}
       {results.length > 0 && (
         <div className="search-results">

@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
+import { X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { posterUrl } from '../lib/tmdb'
 import { useAuth } from '../context/AuthContext'
@@ -15,7 +16,7 @@ export default function ShowList({ refreshKey, onSelect }) {
   const [shows, setShows] = useState([])
   const [watchedCounts, setWatchedCounts] = useState({})
   const [loading, setLoading] = useState(true)
-  const [statusFilter, setStatusFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('watching')
   const [sortBy, setSortBy] = useState('last_watched_at')
 
   useEffect(() => {
@@ -68,6 +69,13 @@ export default function ShowList({ refreshKey, onSelect }) {
     return list
   }, [shows, statusFilter, sortBy, watchedCounts])
 
+  async function dropShow(e, show) {
+    e.stopPropagation()
+    if (!window.confirm(`¿Abandonar "${show.name}"? Se moverá a la categoría "Abandonada".`)) return
+    await supabase.from('tracked_shows').update({ status: 'dropped' }).eq('id', show.id)
+    loadShows()
+  }
+
   if (loading) return <p className="search-empty">Cargando series...</p>
 
   return (
@@ -103,6 +111,9 @@ export default function ShowList({ refreshKey, onSelect }) {
           const pct = total ? Math.round((watched / total) * 100) : 0
           return (
             <div key={show.id} className="show-card" onClick={() => onSelect(show)}>
+              <button className="card-drop-btn" onClick={e => dropShow(e, show)} title="Abandonar serie">
+                <X size={13} />
+              </button>
               {show.poster_path
                 ? <img src={posterUrl(show.poster_path)} alt={show.name} />
                 : <div className="poster-placeholder">Sin imagen</div>}
