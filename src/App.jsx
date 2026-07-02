@@ -1,40 +1,48 @@
 import { useState } from 'react'
-import { LayoutGrid, Search, LogOut, Clapperboard } from 'lucide-react'
+import { LayoutGrid, Search } from 'lucide-react'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Auth from './components/Auth'
 import ShowSearch from './components/ShowSearch'
 import ShowList from './components/ShowList'
 import ShowDetail from './components/ShowDetail'
+import Profile from './components/Profile'
 import './App.css'
 
 function AppInner() {
-  const { user, loading, signOut } = useAuth()
+  const { user, loading } = useAuth()
   const [refreshKey, setRefreshKey] = useState(0)
   const [selectedShow, setSelectedShow] = useState(null)
   const [tab, setTab] = useState('mine') // mine | search
+  const [showProfile, setShowProfile] = useState(false)
 
   if (loading) return <div className="center-msg">Cargando...</div>
   if (!user) return <Auth />
 
   function goToTab(t) {
     setSelectedShow(null)
+    setShowProfile(false)
     setTab(t)
   }
+
+  const overlayOpen = !!selectedShow || showProfile
 
   return (
     <div className="app">
       <header className="app-header">
         <h1><span className="brand-dot" /> Series Tracker</h1>
-        <div className="header-right">
-          <span className="user-email">{user.email}</span>
-          <button className="icon-btn" onClick={signOut} title="Salir">
-            <LogOut size={17} />
-          </button>
-        </div>
+        <button
+          className="avatar-btn"
+          onClick={() => { setSelectedShow(null); setShowProfile(true) }}
+          title="Tu perfil"
+        >
+          {user.email?.[0]?.toUpperCase()}
+        </button>
       </header>
 
       <main>
-        {selectedShow ? (
+        {showProfile ? (
+          <Profile onBack={() => setShowProfile(false)} />
+        ) : selectedShow ? (
           <ShowDetail
             show={selectedShow}
             onBack={() => setSelectedShow(null)}
@@ -47,7 +55,7 @@ function AppInner() {
         )}
       </main>
 
-      {!selectedShow && (
+      {!overlayOpen && (
         <nav className="bottom-nav">
           <button className={tab === 'mine' ? 'active' : ''} onClick={() => goToTab('mine')}>
             <LayoutGrid size={20} />

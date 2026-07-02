@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
-import { X } from 'lucide-react'
+import { X, LayoutGrid, List } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { posterUrl } from '../lib/tmdb'
 import { useAuth } from '../context/AuthContext'
@@ -18,6 +18,7 @@ export default function ShowList({ refreshKey, onSelect }) {
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('watching')
   const [sortBy, setSortBy] = useState('last_watched_at')
+  const [viewMode, setViewMode] = useState('grid') // grid | list
 
   useEffect(() => {
     loadShows()
@@ -33,7 +34,6 @@ export default function ShowList({ refreshKey, onSelect }) {
     if (!error && showsData) {
       setShows(showsData)
 
-      // contar episodios vistos por serie
       const { data: watched } = await supabase
         .from('watched_episodes')
         .select('tracked_show_id')
@@ -61,7 +61,6 @@ export default function ShowList({ refreshKey, onSelect }) {
         const pb = b.total_episodes ? (watchedCounts[b.id] || 0) / b.total_episodes : 0
         return pb - pa
       }
-      // last_watched_at (default) — sin fecha va al final
       if (!a.last_watched_at) return 1
       if (!b.last_watched_at) return -1
       return new Date(b.last_watched_at) - new Date(a.last_watched_at)
@@ -93,6 +92,22 @@ export default function ShowList({ refreshKey, onSelect }) {
           <option value="progress">Progreso</option>
           <option value="name">Nombre (A-Z)</option>
         </select>
+        <div className="view-toggle">
+          <button
+            className={viewMode === 'grid' ? 'active' : ''}
+            onClick={() => setViewMode('grid')}
+            title="Vista cuadrícula"
+          >
+            <LayoutGrid size={16} />
+          </button>
+          <button
+            className={viewMode === 'list' ? 'active' : ''}
+            onClick={() => setViewMode('list')}
+            title="Vista lista"
+          >
+            <List size={16} />
+          </button>
+        </div>
       </div>
 
       {filteredSorted.length === 0 && (
@@ -104,31 +119,59 @@ export default function ShowList({ refreshKey, onSelect }) {
         </div>
       )}
 
-      <div className="show-grid">
-        {filteredSorted.map(show => {
-          const watched = watchedCounts[show.id] || 0
-          const total = show.total_episodes || 0
-          const pct = total ? Math.round((watched / total) * 100) : 0
-          return (
-            <div key={show.id} className="show-card" onClick={() => onSelect(show)}>
-              <button className="card-drop-btn" onClick={e => dropShow(e, show)} title="Abandonar serie">
-                <X size={13} />
-              </button>
-              {show.poster_path
-                ? <img src={posterUrl(show.poster_path)} alt={show.name} />
-                : <div className="poster-placeholder">Sin imagen</div>}
-              <div className="show-card-body">
-                <strong>{show.name}</strong>
-                <span className={`status-badge ${show.status}`}>{STATUS_LABELS[show.status]}</span>
-                <div className="progress-row">
-                  <div className="progress-ring" style={{ '--pct': pct }} />
-                  <span className="progress-text">{watched}/{total} · {pct}%</span>
+      {viewMode === 'grid' ? (
+        <div className="show-grid cols-3">
+          {filteredSorted.map(show => {
+            const watched = watchedCounts[show.id] || 0
+            const total = show.total_episodes || 0
+            const pct = total ? Math.round((watched / total) * 100) : 0
+            return (
+              <div key={show.id} className="show-card" onClick={() => onSelect(show)}>
+                <button className="card-drop-btn" onClick={e => dropShow(e, show)} title="Abandonar serie">
+                  <X size={13} />
+                </button>
+                {show.poster_path
+                  ? <img src={posterUrl(show.poster_path)} alt={show.name} />
+                  : <div className="poster-placeholder">Sin imagen</div>}
+                <div className="show-card-body">
+                  <strong>{show.name}</strong>
+                  <span className={`status-badge ${show.status}`}>{STATUS_LABELS[show.status]}</span>
+                  <div className="progress-row">
+                    <div className="progress-ring" style={{ '--pct': pct }} />
+                    <span className="progress-text">{watched}/{total} · {pct}%</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          )
-        })}
-      </div>
+            )
+          })}
+        </div>
+      ) : (
+        <div className="show-list-rows">
+          {filteredSorted.map(show => {
+            const watched = watchedCounts[show.id] || 0
+            const total = show.total_episodes || 0
+            const pct = total ? Math.round((watched / total) * 100) : 0
+            return (
+              <div key={show.id} className="show-row" onClick={() => onSelect(show)}>
+                {show.poster_path
+                  ? <img src={posterUrl(show.poster_path, 'w92')} alt={show.name} />
+                  : <div className="poster-placeholder-row">—</div>}
+                <div className="show-row-info">
+                  <strong>{show.name}</strong>
+                  <span className={`status-badge ${show.status}`}>{STATUS_LABELS[show.status]}</span>
+                </div>
+                <div className="progress-row">
+                  <div className="progress-ring" style={{ '--pct': pct }} />
+                  <span className="progress-text">{watched}/{total}</span>
+                </div>
+                <button className="row-drop-btn" onClick={e => dropShow(e, show)} title="Abandonar serie">
+                  <X size={14} />
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
