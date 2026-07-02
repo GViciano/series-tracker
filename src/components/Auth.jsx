@@ -33,7 +33,10 @@ export default function Auth() {
 
   return (
     <div className="auth-container">
-      <h1>📺 Series Tracker</h1>
+      <h1>🎬 Series Tracker</h1>
+      <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem', marginTop: 8 }}>
+        Lleva el control de lo que ves, episodio a episodio
+      </p>
       <form onSubmit={handleSubmit} className="auth-form">
         <input
           type="email"

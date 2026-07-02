@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
+import { ArrowLeft, Play } from 'lucide-react'
 import { getShowDetails, getAllEpisodes, stillUrl, posterUrl } from '../lib/tmdb'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -106,7 +107,7 @@ export default function ShowDetail({ show, onBack, onChanged }) {
 
   return (
     <div className="show-detail">
-      <button className="back-btn" onClick={onBack}>← Volver</button>
+      <button className="back-btn" onClick={onBack}><ArrowLeft size={16} /> Volver</button>
 
       <div className="show-detail-header">
         {show.poster_path && <img src={posterUrl(show.poster_path)} alt={show.name} />}
@@ -118,14 +119,22 @@ export default function ShowDetail({ show, onBack, onChanged }) {
 
       {nextEpisode ? (
         <div className="next-episode-banner">
-          <strong>Siguiente episodio:</strong> T{nextEpisode.season_number}E{nextEpisode.episode_number} — {nextEpisode.name}
+          <span className="next-episode-eyebrow">▸ Siguiente episodio</span>
+          <span className="next-episode-code">S{String(nextEpisode.season_number).padStart(2, '0')}·E{String(nextEpisode.episode_number).padStart(2, '0')}</span>
+          <h3>{nextEpisode.name}</h3>
           {nextEpisode.still_path && (
             <img src={stillUrl(nextEpisode.still_path)} alt={nextEpisode.name} />
           )}
-          <button onClick={() => toggleWatched(nextEpisode)}>Marcar como visto</button>
+          <button onClick={() => toggleWatched(nextEpisode)}>
+            <Play size={14} style={{ marginRight: 6, verticalAlign: -2 }} />
+            Marcar como visto
+          </button>
         </div>
       ) : (
-        <div className="next-episode-banner completed">🎉 ¡Serie completada!</div>
+        <div className="next-episode-banner completed">
+          <span className="next-episode-eyebrow">🎉 Serie completada</span>
+          <h3>Has visto todos los episodios</h3>
+        </div>
       )}
 
       {Object.entries(seasons)
@@ -136,7 +145,8 @@ export default function ShowDetail({ show, onBack, onChanged }) {
               className="season-toggle"
               onClick={() => setExpandedSeason(expandedSeason === Number(seasonNum) ? null : Number(seasonNum))}
             >
-              Temporada {seasonNum} ({eps.filter(e => watchedSet.has(`${e.season_number}-${e.episode_number}`)).length}/{eps.length})
+              Temporada {seasonNum}
+              <span>{eps.filter(e => watchedSet.has(`${e.season_number}-${e.episode_number}`)).length}/{eps.length}</span>
             </button>
             {expandedSeason === Number(seasonNum) && (
               <div className="episode-list">

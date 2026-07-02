@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Search } from 'lucide-react'
 import { searchShows, getShowDetails, posterUrl } from '../lib/tmdb'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -61,9 +62,14 @@ export default function ShowSearch({ onAdded }) {
           value={query}
           onChange={e => setQuery(e.target.value)}
         />
-        <button type="submit" disabled={busy}>{busy ? 'Buscando...' : 'Buscar'}</button>
+        <button type="submit" disabled={busy}>
+          {busy ? 'Buscando...' : <><Search size={14} style={{ marginRight: 6, verticalAlign: -2 }} />Buscar</>}
+        </button>
       </form>
       {error && <p className="error">{error}</p>}
+      {results.length === 0 && !busy && (
+        <div className="search-empty">Busca una serie por su título para añadirla a tu lista</div>
+      )}
       {results.length > 0 && (
         <div className="search-results">
           {results.map(show => (

@@ -1,0 +1,19 @@
+{
+  "name": "Series Tracker",
+  "short_name": "Series",
+  "description": "Sigue el progreso de las series que ves",
+  "start_url": "/series-tracker/",
+  "scope": "/series-tracker/",
+  "display": "standalone",
+  "background_color": "#10121b",
+  "theme_color": "#10121b",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

@@ -6,8 +6,8 @@ import { useAuth } from '../context/AuthContext'
 const STATUS_LABELS = {
   plan_to_watch: 'Por empezar',
   watching: 'Viendo',
-  completed: 'Acabadas',
-  dropped: 'Abandonadas',
+  completed: 'Acabada',
+  dropped: 'Abandonada',
 }
 
 export default function ShowList({ refreshKey, onSelect }) {
@@ -68,7 +68,7 @@ export default function ShowList({ refreshKey, onSelect }) {
     return list
   }, [shows, statusFilter, sortBy, watchedCounts])
 
-  if (loading) return <p>Cargando series...</p>
+  if (loading) return <p className="search-empty">Cargando series...</p>
 
   return (
     <div className="show-list">
@@ -87,7 +87,14 @@ export default function ShowList({ refreshKey, onSelect }) {
         </select>
       </div>
 
-      {filteredSorted.length === 0 && <p>No hay series en esta categoría todavía.</p>}
+      {filteredSorted.length === 0 && (
+        <div className="empty-state">
+          <span className="emoji">🎬</span>
+          {shows.length === 0
+            ? 'Aún no has añadido ninguna serie. Ve a "Buscar" para empezar.'
+            : 'No hay series en esta categoría.'}
+        </div>
+      )}
 
       <div className="show-grid">
         {filteredSorted.map(show => {
@@ -101,11 +108,11 @@ export default function ShowList({ refreshKey, onSelect }) {
                 : <div className="poster-placeholder">Sin imagen</div>}
               <div className="show-card-body">
                 <strong>{show.name}</strong>
-                <span className="status-badge">{STATUS_LABELS[show.status]}</span>
-                <div className="progress-bar">
-                  <div className="progress-fill" style={{ width: `${pct}%` }} />
+                <span className={`status-badge ${show.status}`}>{STATUS_LABELS[show.status]}</span>
+                <div className="progress-row">
+                  <div className="progress-ring" style={{ '--pct': pct }} />
+                  <span className="progress-text">{watched}/{total} · {pct}%</span>
                 </div>
-                <span className="progress-text">{watched}/{total} episodios ({pct}%)</span>
               </div>
             </div>
           )
