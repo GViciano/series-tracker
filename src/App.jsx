@@ -44,19 +44,21 @@ function AppInner() {
 
   return (
     <div className="app">
-      <header className="app-header">
+      <header
+        className="app-header"
+        style={{ cursor: overlayOpen ? 'default' : 'pointer' }}
+        onClick={!overlayOpen ? () => mainRef.current?.scrollTo({ top: 0, behavior: 'smooth' }) : undefined}
+      >
         {overlayOpen ? (
           <button className="header-back-btn" onClick={closeOverlays}>
             <ArrowLeft size={18} /> Volver
           </button>
         ) : (
           <>
-            <button className="header-title-btn" onClick={() => mainRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}>
-              <h1><span className="brand-dot" /> Series Tracker</h1>
-            </button>
+            <h1><span className="brand-dot" /> Series Tracker</h1>
             <button
               className="avatar-btn"
-              onClick={() => { setSelectedShow(null); setShowProfile(true) }}
+              onClick={(e) => { e.stopPropagation(); setSelectedShow(null); setShowProfile(true) }}
               title="Tu perfil"
             >
               {user.email?.[0]?.toUpperCase()}

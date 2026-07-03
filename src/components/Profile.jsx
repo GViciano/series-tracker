@@ -122,28 +122,29 @@ export default function Profile({ onImport, onFixed, onSelectShow }) {
       for (const s of shows) {
         try {
           const details = await getShowDetails(s.tmdb_id)
-          const correctTotal = computeTotalEpisodes(details)
-          const nameChanged = details.name && details.name !== s.name
-          const totalChanged = correctTotal && correctTotal !== s.total_episodes
+          const correctTotal = computeTotalEpisodes(details) || s.total_episodes
+          const correctName = details.name || s.name
 
-          if (nameChanged || totalChanged) {
-            const { count } = await supabase
-              .from('watched_episodes')
-              .select('*', { count: 'exact', head: true })
-              .eq('tracked_show_id', s.id)
+          const { count } = await supabase
+            .from('watched_episodes')
+            .select('*', { count: 'exact', head: true })
+            .eq('tracked_show_id', s.id)
 
-            const newStatus = s.status === 'dropped'
-              ? 'dropped'
-              : count === 0
-                ? 'plan_to_watch'
-                : (count >= (correctTotal || s.total_episodes) ? 'completed' : 'watching')
+          const newStatus = s.status === 'dropped'
+            ? 'dropped'
+            : count === 0
+              ? 'plan_to_watch'
+              : (count >= correctTotal ? 'completed' : 'watching')
 
+          const changed = correctName !== s.name || correctTotal !== s.total_episodes || newStatus !== s.status
+
+          if (changed) {
             await supabase
               .from('tracked_shows')
               .update({
-                name: details.name || s.name,
+                name: correctName,
                 poster_path: details.poster_path,
-                total_episodes: correctTotal || s.total_episodes,
+                total_episodes: correctTotal,
                 status: newStatus,
               })
               .eq('id', s.id)

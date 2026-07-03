@@ -122,7 +122,7 @@ export default function ShowList({ refreshKey, onSelect }) {
                   : <div className="poster-placeholder">Sin imagen</div>}
                 <div className="show-card-body">
                   <strong>{show.name}</strong>
-                  <span className={`status-badge ${show.status}`}>{STATUS_LABELS[show.status]}</span>
+                  {show.status !== 'watching' && <span className={`status-badge ${show.status}`}>{STATUS_LABELS[show.status]}</span>}
                   <div className="progress-row">
                     <div className="progress-ring" style={{ '--pct': pct }} />
                     <span className="progress-text">{watched}/{total} · {pct}%</span>
@@ -145,7 +145,7 @@ export default function ShowList({ refreshKey, onSelect }) {
                   : <div className="poster-placeholder-row">—</div>}
                 <div className="show-row-info">
                   <strong>{show.name}</strong>
-                  <span className={`status-badge ${show.status}`}>{STATUS_LABELS[show.status]}</span>
+                  {show.status !== 'watching' && <span className={`status-badge ${show.status}`}>{STATUS_LABELS[show.status]}</span>}
                 </div>
                 <div className="progress-row">
                   <div className="progress-ring" style={{ '--pct': pct }} />
