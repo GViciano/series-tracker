@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
-import { ArrowLeft, Plus } from 'lucide-react'
+import { ArrowLeft, Plus, Check } from 'lucide-react'
 import { searchShows, getShowDetails, getShowCredits, posterUrl, profileUrl, computeTotalEpisodes } from '../lib/tmdb'
-import { supabase } from '../lib/supabase'
+import { supabase, fetchAll } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 
 export default function ShowSearch({ onAdded }) {
@@ -11,11 +11,18 @@ export default function ShowSearch({ onAdded }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
   const debounceRef = useRef(null)
+  const [trackedIds, setTrackedIds] = useState(new Set())
 
   // Vista previa (resumen + reparto) de una serie antes de añadirla
   const [preview, setPreview] = useState(null) // { show, details, cast }
   const [previewLoading, setPreviewLoading] = useState(false)
   const [adding, setAdding] = useState(false)
+
+  useEffect(() => {
+    fetchAll(() => supabase.from('tracked_shows').select('tmdb_id').eq('user_id', user.id))
+      .then(rows => setTrackedIds(new Set(rows.map(r => r.tmdb_id))))
+      .catch(() => {})
+  }, [user.id])
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -69,6 +76,7 @@ export default function ShowSearch({ onAdded }) {
         total_episodes: totalEpisodes,
       })
       if (error) throw error
+      setTrackedIds(prev => new Set(prev).add(show.id))
       setPreview(null)
       setResults([])
       setQuery('')
@@ -131,8 +139,12 @@ export default function ShowSearch({ onAdded }) {
           </>
         )}
 
-        <button className="add-show-btn" onClick={() => handleAdd(show, details)} disabled={adding}>
-          <Plus size={16} /> {adding ? 'Añadiendo...' : 'Añadir serie'}
+        <button className="add-show-btn" onClick={() => handleAdd(show, details)} disabled={adding || trackedIds.has(show.id)}>
+          {trackedIds.has(show.id) ? (
+            <><Check size={16} /> Serie añadida</>
+          ) : (
+            <><Plus size={16} /> {adding ? 'Añadiendo...' : 'Añadir serie'}</>
+          )}
         </button>
       </div>
     )
@@ -168,6 +180,9 @@ export default function ShowSearch({ onAdded }) {
                 <strong>{show.name}</strong>
                 <span>{show.first_air_date?.slice(0, 4) || '—'}</span>
               </div>
+              {trackedIds.has(show.id) && (
+                <span className="added-badge"><Check size={12} /> Añadida</span>
+              )}
             </div>
           ))}
         </div>

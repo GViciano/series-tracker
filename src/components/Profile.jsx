@@ -134,7 +134,9 @@ export default function Profile({ onImport, onFixed, onSelectShow }) {
 
             const newStatus = s.status === 'dropped'
               ? 'dropped'
-              : (count >= (correctTotal || s.total_episodes) ? 'completed' : 'watching')
+              : count === 0
+                ? 'plan_to_watch'
+                : (count >= (correctTotal || s.total_episodes) ? 'completed' : 'watching')
 
             await supabase
               .from('tracked_shows')

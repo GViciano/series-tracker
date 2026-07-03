@@ -252,7 +252,7 @@ export default function ImportTvTime({ onImported }) {
             tmdb_id: m.chosenId,
             name: details.name,
             poster_path: details.poster_path,
-            status: 'watching',
+            status: 'plan_to_watch',
             total_episodes: totalEpisodes,
             last_watched_at: lastWatched,
           })
@@ -281,7 +281,9 @@ export default function ImportTvTime({ onImported }) {
           .select('*', { count: 'exact', head: true })
           .eq('tracked_show_id', trackedShowId)
 
-        const finalStatus = totalEpisodes && count >= totalEpisodes ? 'completed' : 'watching'
+        const finalStatus = count === 0
+          ? 'plan_to_watch'
+          : (totalEpisodes && count >= totalEpisodes ? 'completed' : 'watching')
 
         await supabase
           .from('tracked_shows')

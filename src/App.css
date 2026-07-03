@@ -661,6 +661,24 @@ main {
   padding: 13px;
   display: flex; align-items: center; justify-content: center; gap: 8px;
 }
+.add-show-btn:disabled {
+  background: var(--surface-2);
+  color: var(--accent-2);
+  opacity: 1;
+}
+
+.added-badge {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent-2);
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: var(--surface-2);
+  padding: 4px 8px;
+  border-radius: 20px;
+}
 
 /* ---------- Import from TV Time ---------- */
 .import-entry-btn {
