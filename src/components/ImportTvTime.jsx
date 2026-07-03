@@ -15,6 +15,28 @@ function normalize(s) {
     .replace(/[^a-z0-9]/g, '')
 }
 
+// Similitud de texto (coeficiente de Dice sobre bigramas), 0 a 1.
+// Sirve para detectar coincidencias "por casualidad" de la estructura de
+// temporadas/episodios entre series cuyo nombre no se parece en nada.
+function bigrams(str) {
+  const grams = []
+  for (let i = 0; i < str.length - 1; i++) grams.push(str.slice(i, i + 2))
+  return grams
+}
+function textSimilarity(a, b) {
+  const bgA = bigrams(normalize(a))
+  const bgB = bigrams(normalize(b))
+  if (bgA.length === 0 || bgB.length === 0) return 0
+  const used = new Array(bgB.length).fill(false)
+  let matches = 0
+  for (const g of bgA) {
+    const idx = bgB.findIndex((x, i) => x === g && !used[i])
+    if (idx !== -1) { matches++; used[idx] = true }
+  }
+  return (2 * matches) / (bgA.length + bgB.length)
+}
+const MIN_SIMILARITY = 0.3
+
 // Cuántos episodios/temporadas no encajan entre lo que viste y la estructura
 // real del candidato. 0 = coincidencia perfecta.
 function countMismatches(details, maxEpisodeBySeason) {
@@ -42,9 +64,12 @@ async function findBestMatch(results, cleanTitle, yearHint, maxEpisodeBySeason) 
   for (const candidate of reordered.slice(0, MAX_CANDIDATES)) {
     const details = await getShowDetails(candidate.id).catch(() => null)
     const mismatches = countMismatches(details, maxEpisodeBySeason)
+    const similarity = Math.max(textSimilarity(cleanTitle, candidate.name), textSimilarity(cleanTitle, candidate.original_name))
     const bonus = (isExact(candidate) ? -1 : 0) + (yearHint && candidate.first_air_date?.startsWith(yearHint) ? -0.5 : 0)
-    checked.push({ candidate, details, mismatches, score: mismatches + bonus })
-    if (mismatches <= 0) break // coincidencia perfecta encontrada, no hace falta seguir gastando llamadas
+    checked.push({ candidate, details, mismatches, similarity, score: mismatches + bonus })
+    // solo paramos si encaja Y el nombre se parece de verdad — si no, puede
+    // ser una coincidencia de estructura por casualidad, seguimos mirando
+    if (mismatches <= 0 && similarity >= MIN_SIMILARITY) break
     await new Promise(r => setTimeout(r, 50))
   }
 
@@ -125,7 +150,15 @@ export default function ImportTvTime({ onImported }) {
         candidates = checked.map(c => c.candidate)
         const winner = checked[0]
         chosenId = winner.candidate.id
-        status = winner.mismatches <= 0 ? 'ok' : 'review'
+
+        if (winner.mismatches <= 0 && winner.similarity >= MIN_SIMILARITY) {
+          status = 'ok'
+        } else {
+          // la estructura encaja pero el nombre no se parece nada — puede ser
+          // coincidencia por casualidad (dos series distintas con el mismo
+          // número de episodios), así que se pide revisión en vez de asumirlo
+          status = 'review'
+        }
       }
 
       built.push({
@@ -320,18 +353,25 @@ export default function ImportTvTime({ onImported }) {
             {includedCount} de {matches.length} series se importarán. Revisa las que tengan aviso.
           </p>
           <div className="import-rows">
-            {matches.map((m, i) => (
+            {matches.map((m, i) => {
+              const chosen = m.candidates.find(c => c.id === m.chosenId)
+              return (
               <div key={m.title} className={`import-row status-${m.status}`}>
                 <input
                   type="checkbox"
                   checked={m.included}
                   onChange={e => updateMatch(i, { included: e.target.checked })}
                 />
-                {m.candidates.find(c => c.id === m.chosenId)?.poster_path
-                  ? <img src={posterUrl(m.candidates.find(c => c.id === m.chosenId).poster_path, 'w92')} alt="" />
+                {chosen?.poster_path
+                  ? <img src={posterUrl(chosen.poster_path, 'w92')} alt="" />
                   : <div className="poster-placeholder-row">—</div>}
                 <div className="import-row-info">
                   <strong>{m.title}</strong>
+                  {chosen && (
+                    <span className="matched-name">
+                      → {chosen.name}{chosen.first_air_date ? ` (${chosen.first_air_date.slice(0, 4)})` : ''}
+                    </span>
+                  )}
                   <span>{m.episodesCount} episodios vistos</span>
 
                   {m.candidates.length > 1 && (
@@ -370,7 +410,8 @@ export default function ImportTvTime({ onImported }) {
                   {m.status === 'none' && <HelpCircle size={16} />}
                 </span>
               </div>
-            ))}
+              )
+            })}
           </div>
           <button className="import-confirm-btn" onClick={runImport} disabled={includedCount === 0}>
             Importar {includedCount} series

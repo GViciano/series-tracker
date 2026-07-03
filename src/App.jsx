@@ -51,7 +51,9 @@ function AppInner() {
           </button>
         ) : (
           <>
-            <h1><span className="brand-dot" /> Series Tracker</h1>
+            <button className="header-title-btn" onClick={() => mainRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}>
+              <h1><span className="brand-dot" /> Series Tracker</h1>
+            </button>
             <button
               className="avatar-btn"
               onClick={() => { setSelectedShow(null); setShowProfile(true) }}
