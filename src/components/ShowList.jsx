@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { LayoutGrid, List } from 'lucide-react'
-import { supabase } from '../lib/supabase'
+import { supabase, fetchAll } from '../lib/supabase'
 import { posterUrl } from '../lib/tmdb'
 import { useAuth } from '../context/AuthContext'
 
@@ -38,10 +38,12 @@ export default function ShowList({ refreshKey, onSelect }) {
     if (!error && showsData) {
       setShows(showsData)
 
-      const { data: watched } = await supabase
-        .from('watched_episodes')
-        .select('tracked_show_id')
-        .eq('user_id', user.id)
+      const watched = await fetchAll(() =>
+        supabase
+          .from('watched_episodes')
+          .select('tracked_show_id')
+          .eq('user_id', user.id)
+      )
 
       const counts = {}
       watched?.forEach(w => {

@@ -67,7 +67,10 @@ function AppInner() {
         {showImport ? (
           <ImportTvTime onImported={() => setRefreshKey(k => k + 1)} />
         ) : showProfile ? (
-          <Profile onImport={() => { setShowProfile(false); setShowImport(true) }} />
+          <Profile
+            onImport={() => { setShowProfile(false); setShowImport(true) }}
+            onFixed={() => setRefreshKey(k => k + 1)}
+          />
         ) : selectedShow ? (
           <ShowDetail
             show={selectedShow}

@@ -1,8 +1,9 @@
 import { useEffect, useState, useMemo } from 'react'
-import { Play, XCircle, CheckCheck } from 'lucide-react'
-import { getShowDetails, getAllEpisodes, stillUrl, posterUrl } from '../lib/tmdb'
-import { supabase } from '../lib/supabase'
+import { Play, XCircle, CheckCheck, Trash2 } from 'lucide-react'
+import { getShowDetails, getAllEpisodes, stillUrl, posterUrl, computeTotalEpisodes } from '../lib/tmdb'
+import { supabase, fetchAll } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import ConfirmModal from './ConfirmModal'
 
 export default function ShowDetail({ show, onBack, onChanged }) {
   const { user } = useAuth()
@@ -12,6 +13,7 @@ export default function ShowDetail({ show, onBack, onChanged }) {
   const [loading, setLoading] = useState(true)
   const [expandedSeason, setExpandedSeason] = useState(null)
   const [error, setError] = useState(null)
+  const [confirmMode, setConfirmMode] = useState(null) // null | 'drop' | 'delete'
 
   useEffect(() => {
     loadAll()
@@ -26,11 +28,21 @@ export default function ShowDetail({ show, onBack, onChanged }) {
       const eps = await getAllEpisodes(show.tmdb_id, d.seasons)
       setEpisodes(eps)
 
-      const { data: watched } = await supabase
-        .from('watched_episodes')
-        .select('season_number, episode_number')
-        .eq('tracked_show_id', show.id)
-        .eq('user_id', user.id)
+      // Autocorrige el total de episodios guardado si estaba desactualizado
+      // (por ejemplo, series importadas cuando TMDB aún no tenía bien el dato)
+      const correctTotal = computeTotalEpisodes(d)
+      if (correctTotal && correctTotal !== show.total_episodes) {
+        await supabase.from('tracked_shows').update({ total_episodes: correctTotal }).eq('id', show.id)
+        onChanged?.()
+      }
+
+      const watched = await fetchAll(() =>
+        supabase
+          .from('watched_episodes')
+          .select('season_number, episode_number')
+          .eq('tracked_show_id', show.id)
+          .eq('user_id', user.id)
+      )
 
       const set = new Set((watched || []).map(w => `${w.season_number}-${w.episode_number}`))
       setWatchedSet(set)
@@ -92,7 +104,7 @@ export default function ShowDetail({ show, onBack, onChanged }) {
     const totalWatched = newSet.size
     let status = show.status
     if (totalWatched === 0) status = 'plan_to_watch'
-    else if (details && totalWatched >= details.number_of_episodes) status = 'completed'
+    else if (details && totalWatched >= computeTotalEpisodes(details)) status = 'completed'
     else status = 'watching'
 
     await supabase.from('tracked_shows')
@@ -120,7 +132,7 @@ export default function ShowDetail({ show, onBack, onChanged }) {
     setWatchedSet(newSet)
 
     const totalWatched = newSet.size
-    const status = details && totalWatched >= details.number_of_episodes ? 'completed' : 'watching'
+    const status = details && totalWatched >= computeTotalEpisodes(details) ? 'completed' : 'watching'
 
     await supabase.from('tracked_shows')
       .update({ status, last_watched_at: new Date().toISOString() })
@@ -129,9 +141,17 @@ export default function ShowDetail({ show, onBack, onChanged }) {
     onChanged?.()
   }
 
-  async function dropShow() {
-    if (!window.confirm(`¿Abandonar "${show.name}"? Se moverá a la categoría "Abandonada".`)) return
+  async function confirmDrop() {
     await supabase.from('tracked_shows').update({ status: 'dropped' }).eq('id', show.id)
+    setConfirmMode(null)
+    onChanged?.()
+    onBack()
+  }
+
+  async function confirmDelete() {
+    // borra la serie por completo (los episodios vistos se eliminan en cascada)
+    await supabase.from('tracked_shows').delete().eq('id', show.id)
+    setConfirmMode(null)
     onChanged?.()
     onBack()
   }
@@ -145,17 +165,20 @@ export default function ShowDetail({ show, onBack, onChanged }) {
         {show.poster_path && <img src={posterUrl(show.poster_path)} alt={show.name} />}
         <div>
           <h2>{show.name}</h2>
-          <p>{watchedSet.size} / {details?.number_of_episodes ?? show.total_episodes} episodios vistos</p>
+          <p>{watchedSet.size} / {details ? computeTotalEpisodes(details) : show.total_episodes} episodios vistos</p>
         </div>
       </div>
 
-      {show.status !== 'dropped' && (
-        <div className="detail-actions">
-          <button className="drop-show-btn" onClick={dropShow}>
+      <div className="detail-actions">
+        {show.status !== 'dropped' && (
+          <button className="drop-show-btn" onClick={() => setConfirmMode('drop')}>
             <XCircle size={14} /> Abandonar serie
           </button>
-        </div>
-      )}
+        )}
+        <button className="delete-show-btn" onClick={() => setConfirmMode('delete')}>
+          <Trash2 size={14} /> Eliminar definitivamente
+        </button>
+      </div>
 
       {nextEpisode ? (
         <div className="next-episode-banner">
@@ -221,6 +244,24 @@ export default function ShowDetail({ show, onBack, onChanged }) {
           </div>
           )
         })}
+
+      <ConfirmModal
+        open={confirmMode === 'drop'}
+        title="Abandonar serie"
+        message={`"${show.name}" se moverá a la categoría "Abandonada". Podrás verla ahí, pero no en tus series activas.`}
+        confirmLabel="Abandonar"
+        onConfirm={confirmDrop}
+        onCancel={() => setConfirmMode(null)}
+      />
+      <ConfirmModal
+        open={confirmMode === 'delete'}
+        title="Eliminar definitivamente"
+        message={`Se eliminará "${show.name}" y todo tu progreso de episodios vistos. Esta acción no se puede deshacer.`}
+        confirmLabel="Eliminar"
+        danger
+        onConfirm={confirmDelete}
+        onCancel={() => setConfirmMode(null)}
+      />
     </div>
   )
 }

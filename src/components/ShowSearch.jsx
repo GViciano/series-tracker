@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { ArrowLeft, Plus } from 'lucide-react'
-import { searchShows, getShowDetails, getShowCredits, posterUrl, profileUrl } from '../lib/tmdb'
+import { searchShows, getShowDetails, getShowCredits, posterUrl, profileUrl, computeTotalEpisodes } from '../lib/tmdb'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 
@@ -59,7 +59,7 @@ export default function ShowSearch({ onAdded }) {
     setAdding(true)
     setError(null)
     try {
-      const totalEpisodes = details?.number_of_episodes ?? 0
+      const totalEpisodes = computeTotalEpisodes(details)
       const { error } = await supabase.from('tracked_shows').insert({
         user_id: user.id,
         tmdb_id: show.id,

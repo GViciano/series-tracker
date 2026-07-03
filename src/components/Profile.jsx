@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { LogOut, Clock, CalendarDays, Upload } from 'lucide-react'
-import { supabase } from '../lib/supabase'
-import { getShowDetails } from '../lib/tmdb'
+import { LogOut, CalendarDays, Upload, ChevronDown, RefreshCw } from 'lucide-react'
+import { supabase, fetchAll } from '../lib/supabase'
+import { getShowDetails, computeTotalEpisodes } from '../lib/tmdb'
 import { useAuth } from '../context/AuthContext'
 
 const MONTH_NAMES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
@@ -16,13 +16,17 @@ function formatDuration(minutes) {
   return `${Math.round(minutes)}min`
 }
 
-export default function Profile({ onImport }) {
+export default function Profile({ onImport, onFixed }) {
   const { user, signOut } = useAuth()
   const [loading, setLoading] = useState(true)
-  const [monthly, setMonthly] = useState([])
+  const [monthsByYear, setMonthsByYear] = useState({}) // { year: [ {key, label, minutes, episodes, month} ] }
   const [yearly, setYearly] = useState([])
   const [totalMinutes, setTotalMinutes] = useState(0)
   const [totalEpisodes, setTotalEpisodes] = useState(0)
+  const [expandedYear, setExpandedYear] = useState(null)
+  const [recalculating, setRecalculating] = useState(false)
+  const [recalcProgress, setRecalcProgress] = useState({ done: 0, total: 0 })
+  const [recalcResult, setRecalcResult] = useState(null)
 
   useEffect(() => {
     loadStats()
@@ -36,16 +40,18 @@ export default function Profile({ onImport }) {
         .select('id, tmdb_id, name')
         .eq('user_id', user.id)
 
-      const { data: watched } = await supabase
-        .from('watched_episodes')
-        .select('tracked_show_id, watched_at')
-        .eq('user_id', user.id)
+      // Supabase limita a 1000 filas por consulta — fetchAll pagina hasta traerlas todas
+      const watched = await fetchAll(() =>
+        supabase
+          .from('watched_episodes')
+          .select('tracked_show_id, watched_at')
+          .eq('user_id', user.id)
+      )
 
       const showsById = {}
       shows?.forEach(s => { showsById[s.id] = s })
 
-      // duración media de episodio por serie (solo para series con episodios vistos)
-      const neededShowIds = [...new Set((watched || []).map(w => w.tracked_show_id))]
+      const neededShowIds = [...new Set(watched.map(w => w.tracked_show_id))]
       const runtimeByShowId = {}
       await Promise.all(neededShowIds.map(async (showId) => {
         const show = showsById[showId]
@@ -62,7 +68,7 @@ export default function Profile({ onImport }) {
       const yearMap = {}
       let totalMin = 0
 
-      ;(watched || []).forEach(w => {
+      watched.forEach(w => {
         const minutes = runtimeByShowId[w.tracked_show_id] || DEFAULT_RUNTIME
         totalMin += minutes
         const d = new Date(w.watched_at)
@@ -79,23 +85,67 @@ export default function Profile({ onImport }) {
         yearMap[year].episodes += 1
       })
 
-      const monthlyArr = Object.values(monthMap)
-        .map(m => ({ ...m, label: `${MONTH_NAMES[m.month]} ${m.year}` }))
-        .sort((a, b) => b.key.localeCompare(a.key))
-        .slice(0, 12)
+      const byYear = {}
+      Object.values(monthMap).forEach(m => {
+        if (!byYear[m.year]) byYear[m.year] = []
+        byYear[m.year].push({ ...m, label: MONTH_NAMES[m.month] })
+      })
+      Object.values(byYear).forEach(arr => arr.sort((a, b) => b.month - a.month))
 
       const yearlyArr = Object.values(yearMap).sort((a, b) => b.year - a.year)
 
-      setMonthly(monthlyArr)
+      setMonthsByYear(byYear)
       setYearly(yearlyArr)
       setTotalMinutes(totalMin)
-      setTotalEpisodes((watched || []).length)
+      setTotalEpisodes(watched.length)
     } finally {
       setLoading(false)
     }
   }
 
-  const maxMonthMinutes = Math.max(1, ...monthly.map(m => m.minutes))
+  async function runRecalculate() {
+    setRecalculating(true)
+    setRecalcResult(null)
+    try {
+      const shows = await fetchAll(() =>
+        supabase.from('tracked_shows').select('id, tmdb_id, total_episodes, status').eq('user_id', user.id)
+      )
+      setRecalcProgress({ done: 0, total: shows.length })
+
+      let fixed = 0
+      for (const s of shows) {
+        try {
+          const details = await getShowDetails(s.tmdb_id)
+          const correctTotal = computeTotalEpisodes(details)
+          if (correctTotal && correctTotal !== s.total_episodes) {
+            const { count } = await supabase
+              .from('watched_episodes')
+              .select('*', { count: 'exact', head: true })
+              .eq('tracked_show_id', s.id)
+
+            const newStatus = s.status === 'dropped'
+              ? 'dropped'
+              : (count >= correctTotal ? 'completed' : 'watching')
+
+            await supabase
+              .from('tracked_shows')
+              .update({ total_episodes: correctTotal, status: newStatus })
+              .eq('id', s.id)
+            fixed++
+          }
+        } catch {
+          // se salta esta serie si falla la consulta a TMDB
+        }
+        setRecalcProgress(p => ({ ...p, done: p.done + 1 }))
+        await new Promise(r => setTimeout(r, 60))
+      }
+
+      setRecalcResult(fixed)
+      onFixed?.()
+    } finally {
+      setRecalculating(false)
+    }
+  }
 
   return (
     <div className="profile-view">
@@ -124,29 +174,52 @@ export default function Profile({ onImport }) {
             </div>
           </div>
 
-          <h3 className="section-title"><Clock size={14} /> Por mes</h3>
-          <div className="stats-list">
-            {monthly.map(m => (
-              <div key={m.key} className="stats-row">
-                <span className="stats-row-label">{m.label}</span>
-                <div className="stats-bar-track">
-                  <div className="stats-bar-fill" style={{ width: `${(m.minutes / maxMonthMinutes) * 100}%` }} />
-                </div>
-                <span className="stats-row-value">{formatDuration(m.minutes)}</span>
-              </div>
-            ))}
-          </div>
-
           <h3 className="section-title"><CalendarDays size={14} /> Por año</h3>
           <div className="stats-list">
-            {yearly.map(y => (
-              <div key={y.year} className="stats-row">
-                <span className="stats-row-label">{y.year}</span>
-                <span className="stats-row-value">{y.episodes} episodios · {formatDuration(y.minutes)}</span>
-              </div>
-            ))}
+            {yearly.map(y => {
+              const months = monthsByYear[y.year] || []
+              const maxMonthMinutes = Math.max(1, ...months.map(m => m.minutes))
+              const isOpen = expandedYear === y.year
+              return (
+                <div key={y.year} className="stats-year-block">
+                  <button
+                    className="stats-year-row"
+                    onClick={() => setExpandedYear(isOpen ? null : y.year)}
+                  >
+                    <span className="stats-row-label">{y.year}</span>
+                    <span className="stats-row-value">{y.episodes} episodios · {formatDuration(y.minutes)}</span>
+                    <ChevronDown size={15} className={`chevron ${isOpen ? 'open' : ''}`} />
+                  </button>
+                  {isOpen && (
+                    <div className="stats-month-sublist">
+                      {months.map(m => (
+                        <div key={m.key} className="stats-row substats-row">
+                          <span className="stats-row-label">{m.label}</span>
+                          <div className="stats-bar-track">
+                            <div className="stats-bar-fill" style={{ width: `${(m.minutes / maxMonthMinutes) * 100}%` }} />
+                          </div>
+                          <span className="stats-row-value">{formatDuration(m.minutes)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </>
+      )}
+
+      <button className="import-entry-btn" onClick={runRecalculate} disabled={recalculating}>
+        <RefreshCw size={16} className={recalculating ? 'spinning' : ''} />
+        {recalculating
+          ? `Recalculando ${recalcProgress.done}/${recalcProgress.total}...`
+          : 'Recalcular totales de episodios'}
+      </button>
+      {recalcResult !== null && !recalculating && (
+        <p className="recalc-result">
+          {recalcResult > 0 ? `✔ Corregidas ${recalcResult} series` : 'Todo estaba correcto, nada que corregir'}
+        </p>
       )}
 
       <button className="import-entry-btn" onClick={onImport}>

@@ -51,6 +51,17 @@ export function profileUrl(path, size = 'w185') {
   return `${IMG_BASE}/${size}${path}`
 }
 
+// El campo "number_of_episodes" de TMDB a veces está desactualizado (sobre todo
+// en series con temporadas recientes) y puede venir en 0. Sumar los episodios
+// por temporada (excluyendo especiales) es más fiable.
+export function computeTotalEpisodes(details) {
+  if (!details?.seasons) return details?.number_of_episodes ?? 0
+  const sum = details.seasons
+    .filter(s => s.season_number > 0)
+    .reduce((acc, s) => acc + (s.episode_count || 0), 0)
+  return sum || details.number_of_episodes || 0
+}
+
 export async function getShowDetails(tmdbId) {
   const res = await fetch(url(`/tv/${tmdbId}`))
   if (!res.ok) throw new Error('Error obteniendo detalles de la serie')

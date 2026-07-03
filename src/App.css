@@ -310,7 +310,7 @@ main {
 .show-detail-header h2 { font-size: 1.3rem; letter-spacing: -0.01em; }
 .show-detail-header p { color: var(--text-dim); font-family: var(--font-mono); font-size: 0.82rem; margin: 6px 0 0; }
 
-.detail-actions { display: flex; justify-content: flex-end; margin-bottom: 18px; }
+.detail-actions { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
 .drop-show-btn {
   background: var(--surface-2);
   color: var(--danger);
@@ -321,6 +321,17 @@ main {
   gap: 6px;
 }
 .drop-show-btn:hover { background: var(--danger); color: white; }
+.delete-show-btn {
+  background: transparent;
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  font-size: 0.78rem;
+  padding: 7px 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.delete-show-btn:hover { background: var(--danger); color: white; }
 
 /* Ticket-stub "next episode" — signature element */
 .next-episode-banner {
@@ -536,6 +547,32 @@ main {
   font-size: 0.72rem; min-width: 76px; text-align: right;
 }
 
+.stats-year-block { display: flex; flex-direction: column; gap: 8px; }
+.stats-year-row {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.8rem;
+}
+.stats-year-row:hover { background: var(--surface-2); transform: none; }
+.stats-year-row .stats-row-label { width: auto; font-family: var(--font-display); color: var(--text); font-size: 0.9rem; }
+.stats-year-row .stats-row-value { flex: 1; text-align: left; margin-left: 4px; }
+.chevron { transition: transform 0.15s; color: var(--text-faint); flex-shrink: 0; }
+.chevron.open { transform: rotate(180deg); }
+
+.stats-month-sublist {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 4px 4px 4px 16px;
+  border-left: 2px solid var(--border);
+  margin-left: 8px;
+}
+.substats-row .stats-row-label { width: 44px; }
+
 .logout-btn {
   width: 100%;
   margin-top: 34px;
@@ -629,6 +666,17 @@ main {
   padding: 12px;
 }
 .import-entry-btn:hover { background: var(--accent-2); color: #08211c; }
+.import-entry-btn:disabled { opacity: 0.6; }
+
+.spinning { animation: spin 1s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+.recalc-result {
+  text-align: center;
+  color: var(--text-faint);
+  font-size: 0.78rem;
+  margin: -18px 0 0;
+}
 
 .import-intro {
   text-align: center;
@@ -698,3 +746,46 @@ main {
   padding: 14px;
   font-size: 0.95rem;
 }
+
+/* ---------- Confirm modal ---------- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 9, 14, 0.72);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 20px;
+}
+.modal-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 22px;
+  max-width: 340px;
+  width: 100%;
+}
+.modal-box h3 {
+  font-size: 1.05rem;
+  margin-bottom: 10px;
+}
+.modal-box p {
+  color: var(--text-dim);
+  font-size: 0.88rem;
+  line-height: 1.5;
+  margin: 0 0 20px;
+}
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+.modal-cancel-btn {
+  background: var(--surface-2);
+  color: var(--text-dim);
+}
+.modal-cancel-btn:hover { background: var(--surface-3); color: var(--text); }
+.modal-confirm-btn { background: var(--accent); color: var(--accent-ink); }
+.modal-danger-btn { background: var(--danger); color: white; }

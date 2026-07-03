@@ -1,16 +1,25 @@
 import { useState, useRef } from 'react'
 import Papa from 'papaparse'
 import { Upload, Check, AlertTriangle, HelpCircle, Search } from 'lucide-react'
-import { searchShows, getShowDetails, posterUrl } from '../lib/tmdb'
+import { searchShows, getShowDetails, posterUrl, computeTotalEpisodes } from '../lib/tmdb'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 
-const MAX_CANDIDATES = 3
+const MAX_CANDIDATES = 6
+
+// Normaliza para comparar títulos ignorando mayúsculas, acentos y puntuación
+function normalize(s) {
+  return (s || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '')
+}
 
 // Cuántos episodios/temporadas no encajan entre lo que viste y la estructura
 // real del candidato. 0 = coincidencia perfecta.
 function countMismatches(details, maxEpisodeBySeason) {
   if (!details?.seasons) return Infinity
+  if (maxEpisodeBySeason.size === 0) return 0 // sin datos de temporada/episodio para comprobar
   let invalid = 0
   for (const [season, maxEp] of maxEpisodeBySeason) {
     const seasonInfo = details.seasons.find(s => s.season_number === season)
@@ -18,6 +27,29 @@ function countMismatches(details, maxEpisodeBySeason) {
     if (maxEp > seasonInfo.episode_count) invalid++
   }
   return invalid
+}
+
+// Busca la mejor coincidencia entre los resultados de TMDB: prioriza título
+// exacto, y valida contra la estructura real (temporadas/episodios) de cada
+// candidato, ampliando la búsqueda hasta encontrar una que encaje del todo.
+async function findBestMatch(results, cleanTitle, yearHint, maxEpisodeBySeason) {
+  const targetNorm = normalize(cleanTitle)
+  const isExact = (c) => normalize(c.name) === targetNorm || normalize(c.original_name) === targetNorm
+
+  const reordered = [...results].sort((a, b) => (isExact(b) ? 1 : 0) - (isExact(a) ? 1 : 0))
+
+  const checked = []
+  for (const candidate of reordered.slice(0, MAX_CANDIDATES)) {
+    const details = await getShowDetails(candidate.id).catch(() => null)
+    const mismatches = countMismatches(details, maxEpisodeBySeason)
+    const bonus = (isExact(candidate) ? -1 : 0) + (yearHint && candidate.first_air_date?.startsWith(yearHint) ? -0.5 : 0)
+    checked.push({ candidate, details, mismatches, score: mismatches + bonus })
+    if (mismatches <= 0) break // coincidencia perfecta encontrada, no hace falta seguir gastando llamadas
+    await new Promise(r => setTimeout(r, 50))
+  }
+
+  checked.sort((a, b) => a.score - b.score)
+  return checked
 }
 
 export default function ImportTvTime({ onImported }) {
@@ -88,23 +120,12 @@ export default function ImportTvTime({ onImported }) {
       let candidates = []
       let chosenId = null
 
-      if (results.length === 1) {
-        status = 'ok'
-        candidates = [results[0]]
-        chosenId = results[0].id
-      } else if (results.length > 1) {
-        const top = results.slice(0, MAX_CANDIDATES)
-        const scored = []
-        for (const c of top) {
-          const details = await getShowDetails(c.id).catch(() => null)
-          const mismatches = countMismatches(details, maxEpisodeBySeason)
-          const yearBonus = yearHint && c.first_air_date?.startsWith(yearHint) ? -0.5 : 0
-          scored.push({ candidate: c, mismatches: mismatches + yearBonus })
-        }
-        scored.sort((a, b) => a.mismatches - b.mismatches || (b.candidate.popularity ?? 0) - (a.candidate.popularity ?? 0))
-        candidates = scored.map(s => s.candidate)
-        chosenId = scored[0].candidate.id
-        status = scored[0].mismatches <= 0 ? 'ok' : 'review'
+      if (results.length > 0) {
+        const checked = await findBestMatch(results, cleanTitle, yearHint, maxEpisodeBySeason)
+        candidates = checked.map(c => c.candidate)
+        const winner = checked[0]
+        chosenId = winner.candidate.id
+        status = winner.mismatches <= 0 ? 'ok' : 'review'
       }
 
       built.push({
@@ -153,16 +174,10 @@ export default function ImportTvTime({ onImported }) {
 
     let importedShows = 0
     let importedEpisodes = 0
+    let alreadyExisted = 0
 
     for (const m of toImport) {
       try {
-        const details = await getShowDetails(m.chosenId)
-
-        const watchedDates = m.episodes.map(e => new Date(e.watched_at)).filter(d => !isNaN(d))
-        const lastWatched = watchedDates.length
-          ? new Date(Math.max(...watchedDates.map(d => d.getTime()))).toISOString()
-          : new Date().toISOString()
-
         const { data: existing } = await supabase
           .from('tracked_shows')
           .select('id')
@@ -170,25 +185,36 @@ export default function ImportTvTime({ onImported }) {
           .eq('tmdb_id', m.chosenId)
           .maybeSingle()
 
-        let trackedShowId = existing?.id
-
-        if (!trackedShowId) {
-          const { data: inserted, error: insertError } = await supabase
-            .from('tracked_shows')
-            .insert({
-              user_id: user.id,
-              tmdb_id: m.chosenId,
-              name: details.name,
-              poster_path: details.poster_path,
-              status: 'watching',
-              total_episodes: details.number_of_episodes ?? 0,
-              last_watched_at: lastWatched,
-            })
-            .select('id')
-            .single()
-          if (insertError) throw insertError
-          trackedShowId = inserted.id
+        if (existing) {
+          // ya la tenías en tu lista: no se toca ni se sobrescribe nada
+          alreadyExisted++
+          setImportProgress(p => ({ ...p, done: p.done + 1 }))
+          continue
         }
+
+        const details = await getShowDetails(m.chosenId)
+        const totalEpisodes = computeTotalEpisodes(details)
+
+        const watchedDates = m.episodes.map(e => new Date(e.watched_at)).filter(d => !isNaN(d))
+        const lastWatched = watchedDates.length
+          ? new Date(Math.max(...watchedDates.map(d => d.getTime()))).toISOString()
+          : new Date().toISOString()
+
+        const { data: inserted, error: insertError } = await supabase
+          .from('tracked_shows')
+          .insert({
+            user_id: user.id,
+            tmdb_id: m.chosenId,
+            name: details.name,
+            poster_path: details.poster_path,
+            status: 'watching',
+            total_episodes: totalEpisodes,
+            last_watched_at: lastWatched,
+          })
+          .select('id')
+          .single()
+        if (insertError) throw insertError
+        const trackedShowId = inserted.id
 
         const episodeRows = m.episodes
           .map(e => ({
@@ -210,9 +236,7 @@ export default function ImportTvTime({ onImported }) {
           .select('*', { count: 'exact', head: true })
           .eq('tracked_show_id', trackedShowId)
 
-        const finalStatus = details.number_of_episodes && count >= details.number_of_episodes
-          ? 'completed'
-          : 'watching'
+        const finalStatus = totalEpisodes && count >= totalEpisodes ? 'completed' : 'watching'
 
         await supabase
           .from('tracked_shows')
@@ -227,7 +251,12 @@ export default function ImportTvTime({ onImported }) {
       setImportProgress(p => ({ ...p, done: p.done + 1 }))
     }
 
-    setSummary({ importedShows, importedEpisodes, skipped: matches.length - toImport.length })
+    setSummary({
+      importedShows,
+      importedEpisodes,
+      alreadyExisted,
+      skipped: matches.length - toImport.length,
+    })
     setStep('done')
     onImported?.()
   }
@@ -350,6 +379,7 @@ export default function ImportTvTime({ onImported }) {
         <div className="empty-state">
           <span className="emoji">🎉</span>
           <p>Se han importado <strong>{summary.importedShows}</strong> series y <strong>{summary.importedEpisodes}</strong> episodios vistos.</p>
+          {summary.alreadyExisted > 0 && <p>{summary.alreadyExisted} series ya las tenías en tu lista — no se han tocado.</p>}
           {summary.skipped > 0 && <p>({summary.skipped} series descartadas)</p>}
         </div>
       )}
