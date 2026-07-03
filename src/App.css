@@ -31,9 +31,11 @@ html, body {
   font-family: var(--font-body);
   margin: 0;
   -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+  height: 100%;
 }
 
-#root { min-height: 100vh; }
+#root { min-height: 100%; }
 
 h1, h2, h3 { font-family: var(--font-display); margin: 0; }
 
@@ -96,8 +98,8 @@ input:focus, select:focus, button:focus-visible {
 
 /* ---------- App shell (fixed viewport, only <main> scrolls) ---------- */
 .app {
-  height: 100dvh;
-  height: 100vh;
+  height: 100vh;   /* fallback para navegadores sin dvh */
+  height: 100dvh;  /* alto real de la ventana visible en móvil (excluye barra de direcciones) */
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -146,6 +148,9 @@ main {
   width: 100%;
   margin: 0 auto;
   padding: 4px 20px 28px;
+}
+@media (max-width: 380px) {
+  main { padding-left: 14px; padding-right: 14px; }
 }
 
 /* Bottom nav (mobile-first, app-like) — sits outside the scroll area, so it never moves */
@@ -214,8 +219,16 @@ main {
 }
 
 /* ---------- List controls ---------- */
-.list-controls { display: flex; gap: 10px; margin-bottom: 20px; }
-.list-controls select { flex: 1; }
+.list-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.list-controls select {
+  flex: 1 1 130px;
+  min-width: 0;
+}
 
 /* ---------- Show grid + cards ---------- */
 .show-grid {
@@ -300,9 +313,17 @@ main {
 .empty-state span.emoji { font-size: 2rem; display: block; margin-bottom: 10px; }
 
 /* ---------- Show detail ---------- */
+.detail-topbar {
+  position: sticky;
+  top: -4px;
+  margin: -4px 0 14px;
+  padding: 10px 0 4px;
+  background: var(--bg);
+  z-index: 15;
+}
 .back-btn {
   background: none; color: var(--text-dim);
-  margin-bottom: 18px; padding: 6px 0;
+  padding: 6px 0;
   display: flex; align-items: center; gap: 6px;
   font-size: 0.85rem;
 }
