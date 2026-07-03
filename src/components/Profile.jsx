@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { LogOut, CalendarDays, Upload, ChevronDown, RefreshCw, ShieldAlert } from 'lucide-react'
+import { LogOut, CalendarDays, Upload, ChevronDown, RefreshCw, ShieldAlert, Languages } from 'lucide-react'
 import { supabase, fetchAll } from '../lib/supabase'
 import { getShowDetails, computeTotalEpisodes, posterUrl } from '../lib/tmdb'
 import { useAuth } from '../context/AuthContext'
@@ -17,7 +17,9 @@ function formatDuration(minutes) {
 }
 
 export default function Profile({ onImport, onFixed, onSelectShow }) {
-  const { user, signOut } = useAuth()
+  const { user, signOut, setTitleLanguage } = useAuth()
+  const [langSaving, setLangSaving] = useState(false)
+  const currentLang = user.user_metadata?.title_language || 'en'
   const [loading, setLoading] = useState(true)
   const [monthsByYear, setMonthsByYear] = useState({}) // { year: [ {key, label, minutes, episodes, month} ] }
   const [yearly, setYearly] = useState([])
@@ -112,7 +114,7 @@ export default function Profile({ onImport, onFixed, onSelectShow }) {
     setRecalcResult(null)
     try {
       const shows = await fetchAll(() =>
-        supabase.from('tracked_shows').select('id, tmdb_id, total_episodes, status').eq('user_id', user.id)
+        supabase.from('tracked_shows').select('id, tmdb_id, name, total_episodes, status').eq('user_id', user.id)
       )
       setRecalcProgress({ done: 0, total: shows.length })
 
@@ -121,7 +123,10 @@ export default function Profile({ onImport, onFixed, onSelectShow }) {
         try {
           const details = await getShowDetails(s.tmdb_id)
           const correctTotal = computeTotalEpisodes(details)
-          if (correctTotal && correctTotal !== s.total_episodes) {
+          const nameChanged = details.name && details.name !== s.name
+          const totalChanged = correctTotal && correctTotal !== s.total_episodes
+
+          if (nameChanged || totalChanged) {
             const { count } = await supabase
               .from('watched_episodes')
               .select('*', { count: 'exact', head: true })
@@ -129,11 +134,16 @@ export default function Profile({ onImport, onFixed, onSelectShow }) {
 
             const newStatus = s.status === 'dropped'
               ? 'dropped'
-              : (count >= correctTotal ? 'completed' : 'watching')
+              : (count >= (correctTotal || s.total_episodes) ? 'completed' : 'watching')
 
             await supabase
               .from('tracked_shows')
-              .update({ total_episodes: correctTotal, status: newStatus })
+              .update({
+                name: details.name || s.name,
+                poster_path: details.poster_path,
+                total_episodes: correctTotal || s.total_episodes,
+                status: newStatus,
+              })
               .eq('id', s.id)
             fixed++
           }
@@ -197,12 +207,42 @@ export default function Profile({ onImport, onFixed, onSelectShow }) {
     }
   }
 
+  async function handleLanguageChange(pref) {
+    if (pref === currentLang) return
+    setLangSaving(true)
+    await setTitleLanguage(pref)
+    setLangSaving(false)
+  }
+
   return (
     <div className="profile-view">
       <div className="profile-header">
         <div className="profile-avatar">{user.email?.[0]?.toUpperCase()}</div>
         <strong>{user.email}</strong>
       </div>
+
+      <div className="lang-pref-row">
+        <span className="lang-pref-label"><Languages size={14} /> Idioma de los títulos</span>
+        <div className="lang-toggle">
+          <button
+            className={currentLang === 'es' ? 'active' : ''}
+            onClick={() => handleLanguageChange('es')}
+            disabled={langSaving}
+          >
+            Castellano
+          </button>
+          <button
+            className={currentLang === 'en' ? 'active' : ''}
+            onClick={() => handleLanguageChange('en')}
+            disabled={langSaving}
+          >
+            English
+          </button>
+        </div>
+      </div>
+      <p className="lang-pref-hint">
+        Solo afecta al título — resumen, reparto y episodios siguen en castellano. Para renombrar las series que ya tienes en tu lista, usa "Actualizar series" más abajo.
+      </p>
 
       {loading ? (
         <p className="search-empty">Calculando estadísticas...</p>
@@ -264,11 +304,11 @@ export default function Profile({ onImport, onFixed, onSelectShow }) {
         <RefreshCw size={16} className={recalculating ? 'spinning' : ''} />
         {recalculating
           ? `Recalculando ${recalcProgress.done}/${recalcProgress.total}...`
-          : 'Recalcular totales de episodios'}
+          : 'Actualizar series (totales y títulos)'}
       </button>
       {recalcResult !== null && !recalculating && (
         <p className="recalc-result">
-          {recalcResult > 0 ? `✔ Corregidas ${recalcResult} series` : 'Todo estaba correcto, nada que corregir'}
+          {recalcResult > 0 ? `✔ Actualizadas ${recalcResult} series` : 'Todo estaba correcto, nada que actualizar'}
         </p>
       )}
 

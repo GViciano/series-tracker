@@ -2,6 +2,18 @@ const API_KEY = import.meta.env.VITE_TMDB_API_KEY
 const BASE_URL = 'https://api.themoviedb.org/3'
 const IMG_BASE = 'https://image.tmdb.org/t/p'
 
+// Solo afecta al TÍTULO de las series (el resto — resumen, reparto, episodios —
+// siempre se pide en español). Se sincroniza con la preferencia del perfil.
+let titleLanguage = 'en' // 'en' | 'es'
+
+export function setTitleLanguagePref(pref) {
+  titleLanguage = pref === 'es' ? 'es' : 'en'
+}
+
+export function getTitleLanguagePref() {
+  return titleLanguage
+}
+
 function url(path, params = {}) {
   const u = new URL(BASE_URL + path)
   u.searchParams.set('api_key', API_KEY)
@@ -31,10 +43,19 @@ export async function searchShows(query) {
   const esData = esRes.ok ? await esRes.json() : { results: [] }
   const enData = enRes.ok ? await enRes.json() : { results: [] }
 
+  // El resumen y demás datos siempre en español; el título según la preferencia
+  const esById = new Map((esData.results ?? []).map(s => [s.id, s]))
+  const enById = new Map((enData.results ?? []).map(s => [s.id, s]))
+
   const merged = new Map()
-  ;[...(esData.results ?? []), ...(enData.results ?? [])].forEach(show => {
-    if (!merged.has(show.id)) merged.set(show.id, show)
+  esById.forEach((show, id) => {
+    const en = enById.get(id)
+    const preferredName = titleLanguage === 'en' ? (en?.name || show.name) : show.name
+    merged.set(id, { ...show, name: preferredName })
+    enById.delete(id)
   })
+  // series que solo aparecieron en la búsqueda en inglés
+  enById.forEach((show, id) => merged.set(id, show))
 
   return [...merged.values()].sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0))
 }
@@ -63,9 +84,19 @@ export function computeTotalEpisodes(details) {
 }
 
 export async function getShowDetails(tmdbId) {
-  const res = await fetch(url(`/tv/${tmdbId}`))
+  const res = await fetch(url(`/tv/${tmdbId}`)) // español: resumen, géneros, temporadas...
   if (!res.ok) throw new Error('Error obteniendo detalles de la serie')
-  return res.json()
+  const data = await res.json()
+
+  if (titleLanguage === 'en') {
+    const enRes = await fetch(url(`/tv/${tmdbId}`, { language: 'en-US' }))
+    if (enRes.ok) {
+      const enData = await enRes.json()
+      if (enData.name) data.name = enData.name
+    }
+  }
+
+  return data
 }
 
 export async function getSeasonEpisodes(tmdbId, seasonNumber) {

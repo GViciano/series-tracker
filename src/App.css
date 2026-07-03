@@ -820,3 +820,43 @@ main {
 }
 .mismatch-warning p { color: var(--text); margin: 0 0 6px; }
 .mismatch-warning ul { margin: 0; padding-left: 18px; color: var(--text-dim); }
+
+/* ---------- Title language preference ---------- */
+.lang-pref-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.lang-pref-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+.lang-toggle {
+  display: flex;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+}
+.lang-toggle button {
+  background: none;
+  color: var(--text-faint);
+  padding: 7px 12px;
+  font-size: 0.78rem;
+  border-radius: 6px;
+}
+.lang-toggle button.active { background: var(--accent); color: var(--accent-ink); }
+.lang-toggle button:hover { transform: none; }
+
+.lang-pref-hint {
+  color: var(--text-faint);
+  font-size: 0.72rem;
+  line-height: 1.5;
+  margin: 0 0 24px;
+}
