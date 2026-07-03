@@ -6,6 +6,7 @@ import ShowSearch from './components/ShowSearch'
 import ShowList from './components/ShowList'
 import ShowDetail from './components/ShowDetail'
 import Profile from './components/Profile'
+import ImportTvTime from './components/ImportTvTime'
 import './App.css'
 
 function AppInner() {
@@ -14,13 +15,14 @@ function AppInner() {
   const [selectedShow, setSelectedShow] = useState(null)
   const [tab, setTab] = useState('mine') // mine | search
   const [showProfile, setShowProfile] = useState(false)
+  const [showImport, setShowImport] = useState(false)
   const mainRef = useRef(null)
 
   // Vuelve siempre arriba al cambiar de pantalla, para que no queden vistas
   // "desplazadas" con contenido invisible tras cambiar de sección
   useEffect(() => {
     mainRef.current?.scrollTo({ top: 0 })
-  }, [selectedShow, tab, showProfile])
+  }, [selectedShow, tab, showProfile, showImport])
 
   if (loading) return <div className="center-msg">Cargando...</div>
   if (!user) return <Auth />
@@ -28,19 +30,23 @@ function AppInner() {
   function goToTab(t) {
     setSelectedShow(null)
     setShowProfile(false)
+    setShowImport(false)
     setTab(t)
   }
 
-  const overlayOpen = !!selectedShow || showProfile
+  function closeOverlays() {
+    setSelectedShow(null)
+    setShowProfile(false)
+    setShowImport(false)
+  }
+
+  const overlayOpen = !!selectedShow || showProfile || showImport
 
   return (
     <div className="app">
       <header className="app-header">
         {overlayOpen ? (
-          <button
-            className="header-back-btn"
-            onClick={() => { setSelectedShow(null); setShowProfile(false) }}
-          >
+          <button className="header-back-btn" onClick={closeOverlays}>
             <ArrowLeft size={18} /> Volver
           </button>
         ) : (
@@ -58,8 +64,10 @@ function AppInner() {
       </header>
 
       <main ref={mainRef}>
-        {showProfile ? (
-          <Profile onBack={() => setShowProfile(false)} />
+        {showImport ? (
+          <ImportTvTime onImported={() => setRefreshKey(k => k + 1)} />
+        ) : showProfile ? (
+          <Profile onImport={() => { setShowProfile(false); setShowImport(true) }} />
         ) : selectedShow ? (
           <ShowDetail
             show={selectedShow}

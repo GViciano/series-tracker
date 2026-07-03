@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { LogOut, Clock, CalendarDays } from 'lucide-react'
+import { LogOut, Clock, CalendarDays, Upload } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { getShowDetails } from '../lib/tmdb'
 import { useAuth } from '../context/AuthContext'
@@ -16,7 +16,7 @@ function formatDuration(minutes) {
   return `${Math.round(minutes)}min`
 }
 
-export default function Profile({ onBack }) {
+export default function Profile({ onImport }) {
   const { user, signOut } = useAuth()
   const [loading, setLoading] = useState(true)
   const [monthly, setMonthly] = useState([])
@@ -148,6 +148,10 @@ export default function Profile({ onBack }) {
           </div>
         </>
       )}
+
+      <button className="import-entry-btn" onClick={onImport}>
+        <Upload size={16} /> Importar desde TV Time
+      </button>
 
       <button className="logout-btn" onClick={signOut}>
         <LogOut size={16} /> Cerrar sesión
