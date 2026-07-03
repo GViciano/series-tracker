@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
-import { X, LayoutGrid, List } from 'lucide-react'
+import { LayoutGrid, List } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { posterUrl } from '../lib/tmdb'
 import { useAuth } from '../context/AuthContext'
@@ -23,6 +23,10 @@ export default function ShowList({ refreshKey, onSelect }) {
   useEffect(() => {
     loadShows()
   }, [user, refreshKey])
+
+  useEffect(() => {
+    document.querySelector('main')?.scrollTo({ top: 0 })
+  }, [viewMode])
 
   async function loadShows() {
     setLoading(true)
@@ -68,13 +72,6 @@ export default function ShowList({ refreshKey, onSelect }) {
     return list
   }, [shows, statusFilter, sortBy, watchedCounts])
 
-  async function dropShow(e, show) {
-    e.stopPropagation()
-    if (!window.confirm(`¿Abandonar "${show.name}"? Se moverá a la categoría "Abandonada".`)) return
-    await supabase.from('tracked_shows').update({ status: 'dropped' }).eq('id', show.id)
-    loadShows()
-  }
-
   if (loading) return <p className="search-empty">Cargando series...</p>
 
   return (
@@ -92,22 +89,13 @@ export default function ShowList({ refreshKey, onSelect }) {
           <option value="progress">Progreso</option>
           <option value="name">Nombre (A-Z)</option>
         </select>
-        <div className="view-toggle">
-          <button
-            className={viewMode === 'grid' ? 'active' : ''}
-            onClick={() => setViewMode('grid')}
-            title="Vista cuadrícula"
-          >
-            <LayoutGrid size={16} />
-          </button>
-          <button
-            className={viewMode === 'list' ? 'active' : ''}
-            onClick={() => setViewMode('list')}
-            title="Vista lista"
-          >
-            <List size={16} />
-          </button>
-        </div>
+        <button
+          className="view-toggle-btn"
+          onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
+          title={viewMode === 'grid' ? 'Ver en lista' : 'Ver en cuadrícula'}
+        >
+          {viewMode === 'grid' ? <List size={16} /> : <LayoutGrid size={16} />}
+        </button>
       </div>
 
       {filteredSorted.length === 0 && (
@@ -127,9 +115,6 @@ export default function ShowList({ refreshKey, onSelect }) {
             const pct = total ? Math.round((watched / total) * 100) : 0
             return (
               <div key={show.id} className="show-card" onClick={() => onSelect(show)}>
-                <button className="card-drop-btn" onClick={e => dropShow(e, show)} title="Abandonar serie">
-                  <X size={13} />
-                </button>
                 {show.poster_path
                   ? <img src={posterUrl(show.poster_path)} alt={show.name} />
                   : <div className="poster-placeholder">Sin imagen</div>}
@@ -164,9 +149,6 @@ export default function ShowList({ refreshKey, onSelect }) {
                   <div className="progress-ring" style={{ '--pct': pct }} />
                   <span className="progress-text">{watched}/{total}</span>
                 </div>
-                <button className="row-drop-btn" onClick={e => dropShow(e, show)} title="Abandonar serie">
-                  <X size={14} />
-                </button>
               </div>
             )
           })}

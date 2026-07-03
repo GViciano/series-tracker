@@ -22,11 +22,33 @@ export function stillUrl(path, size = 'w300') {
 
 export async function searchShows(query) {
   if (!query?.trim()) return []
-  const res = await fetch(url('/search/tv', { query }))
-  if (!res.ok) throw new Error('Error buscando series en TMDB')
+  const [esRes, enRes] = await Promise.all([
+    fetch(url('/search/tv', { query, language: 'es-ES' })),
+    fetch(url('/search/tv', { query, language: 'en-US' })),
+  ])
+  if (!esRes.ok && !enRes.ok) throw new Error('Error buscando series en TMDB')
+
+  const esData = esRes.ok ? await esRes.json() : { results: [] }
+  const enData = enRes.ok ? await enRes.json() : { results: [] }
+
+  const merged = new Map()
+  ;[...(esData.results ?? []), ...(enData.results ?? [])].forEach(show => {
+    if (!merged.has(show.id)) merged.set(show.id, show)
+  })
+
+  return [...merged.values()].sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0))
+}
+
+export async function getShowCredits(tmdbId) {
+  const res = await fetch(url(`/tv/${tmdbId}/credits`))
+  if (!res.ok) throw new Error('Error obteniendo el reparto')
   const data = await res.json()
-  const results = data.results ?? []
-  return results.sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0))
+  return data.cast ?? []
+}
+
+export function profileUrl(path, size = 'w185') {
+  if (!path) return null
+  return `${IMG_BASE}/${size}${path}`
 }
 
 export async function getShowDetails(tmdbId) {

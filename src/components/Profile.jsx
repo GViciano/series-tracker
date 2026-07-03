@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeft, LogOut, Clock, CalendarDays } from 'lucide-react'
+import { LogOut, Clock, CalendarDays } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { getShowDetails } from '../lib/tmdb'
 import { useAuth } from '../context/AuthContext'
@@ -99,8 +99,6 @@ export default function Profile({ onBack }) {
 
   return (
     <div className="profile-view">
-      <button className="back-btn" onClick={onBack}><ArrowLeft size={16} /> Volver</button>
-
       <div className="profile-header">
         <div className="profile-avatar">{user.email?.[0]?.toUpperCase()}</div>
         <strong>{user.email}</strong>

@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
-import { ArrowLeft, Play, XCircle, CheckCheck } from 'lucide-react'
+import { Play, XCircle, CheckCheck } from 'lucide-react'
 import { getShowDetails, getAllEpisodes, stillUrl, posterUrl } from '../lib/tmdb'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -141,8 +141,6 @@ export default function ShowDetail({ show, onBack, onChanged }) {
 
   return (
     <div className="show-detail">
-      <button className="back-btn" onClick={onBack}><ArrowLeft size={16} /> Volver</button>
-
       <div className="show-detail-header">
         {show.poster_path && <img src={posterUrl(show.poster_path)} alt={show.name} />}
         <div>

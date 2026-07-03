@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { LayoutGrid, Search } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { LayoutGrid, Search, ArrowLeft } from 'lucide-react'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Auth from './components/Auth'
 import ShowSearch from './components/ShowSearch'
@@ -14,6 +14,13 @@ function AppInner() {
   const [selectedShow, setSelectedShow] = useState(null)
   const [tab, setTab] = useState('mine') // mine | search
   const [showProfile, setShowProfile] = useState(false)
+  const mainRef = useRef(null)
+
+  // Vuelve siempre arriba al cambiar de pantalla, para que no queden vistas
+  // "desplazadas" con contenido invisible tras cambiar de sección
+  useEffect(() => {
+    mainRef.current?.scrollTo({ top: 0 })
+  }, [selectedShow, tab, showProfile])
 
   if (loading) return <div className="center-msg">Cargando...</div>
   if (!user) return <Auth />
@@ -29,17 +36,28 @@ function AppInner() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1><span className="brand-dot" /> Series Tracker</h1>
-        <button
-          className="avatar-btn"
-          onClick={() => { setSelectedShow(null); setShowProfile(true) }}
-          title="Tu perfil"
-        >
-          {user.email?.[0]?.toUpperCase()}
-        </button>
+        {overlayOpen ? (
+          <button
+            className="header-back-btn"
+            onClick={() => { setSelectedShow(null); setShowProfile(false) }}
+          >
+            <ArrowLeft size={18} /> Volver
+          </button>
+        ) : (
+          <>
+            <h1><span className="brand-dot" /> Series Tracker</h1>
+            <button
+              className="avatar-btn"
+              onClick={() => { setSelectedShow(null); setShowProfile(true) }}
+              title="Tu perfil"
+            >
+              {user.email?.[0]?.toUpperCase()}
+            </button>
+          </>
+        )}
       </header>
 
-      <main>
+      <main ref={mainRef}>
         {showProfile ? (
           <Profile onBack={() => setShowProfile(false)} />
         ) : selectedShow ? (
