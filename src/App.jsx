@@ -70,6 +70,7 @@ function AppInner() {
           <Profile
             onImport={() => { setShowProfile(false); setShowImport(true) }}
             onFixed={() => setRefreshKey(k => k + 1)}
+            onSelectShow={(s) => { setShowProfile(false); setSelectedShow(s) }}
           />
         ) : selectedShow ? (
           <ShowDetail

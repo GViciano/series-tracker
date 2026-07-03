@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { LogOut, CalendarDays, Upload, ChevronDown, RefreshCw } from 'lucide-react'
+import { LogOut, CalendarDays, Upload, ChevronDown, RefreshCw, ShieldAlert } from 'lucide-react'
 import { supabase, fetchAll } from '../lib/supabase'
-import { getShowDetails, computeTotalEpisodes } from '../lib/tmdb'
+import { getShowDetails, computeTotalEpisodes, posterUrl } from '../lib/tmdb'
 import { useAuth } from '../context/AuthContext'
 
 const MONTH_NAMES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
@@ -16,7 +16,7 @@ function formatDuration(minutes) {
   return `${Math.round(minutes)}min`
 }
 
-export default function Profile({ onImport, onFixed }) {
+export default function Profile({ onImport, onFixed, onSelectShow }) {
   const { user, signOut } = useAuth()
   const [loading, setLoading] = useState(true)
   const [monthsByYear, setMonthsByYear] = useState({}) // { year: [ {key, label, minutes, episodes, month} ] }
@@ -27,6 +27,10 @@ export default function Profile({ onImport, onFixed }) {
   const [recalculating, setRecalculating] = useState(false)
   const [recalcProgress, setRecalcProgress] = useState({ done: 0, total: 0 })
   const [recalcResult, setRecalcResult] = useState(null)
+  const [auditing, setAuditing] = useState(false)
+  const [auditProgress, setAuditProgress] = useState({ done: 0, total: 0 })
+  const [auditResults, setAuditResults] = useState(null)
+
 
   useEffect(() => {
     loadStats()
@@ -147,6 +151,52 @@ export default function Profile({ onImport, onFixed }) {
     }
   }
 
+  async function runAudit() {
+    setAuditing(true)
+    setAuditResults(null)
+    try {
+      const shows = await fetchAll(() =>
+        supabase.from('tracked_shows').select('*').eq('user_id', user.id)
+      )
+      setAuditProgress({ done: 0, total: shows.length })
+
+      const suspects = []
+      for (const s of shows) {
+        try {
+          const details = await getShowDetails(s.tmdb_id)
+          const watched = await fetchAll(() =>
+            supabase
+              .from('watched_episodes')
+              .select('season_number, episode_number')
+              .eq('tracked_show_id', s.id)
+          )
+
+          const maxEpBySeason = new Map()
+          watched.forEach(w => {
+            const cur = maxEpBySeason.get(w.season_number) || 0
+            if (w.episode_number > cur) maxEpBySeason.set(w.season_number, w.episode_number)
+          })
+
+          let invalid = 0
+          for (const [season, maxEp] of maxEpBySeason) {
+            const seasonInfo = details.seasons?.find(x => x.season_number === season)
+            if (!seasonInfo || maxEp > seasonInfo.episode_count) invalid++
+          }
+
+          if (invalid > 0) suspects.push({ ...s, invalid })
+        } catch {
+          // si TMDB falla para esta serie, se ignora en la auditoría
+        }
+        setAuditProgress(p => ({ ...p, done: p.done + 1 }))
+        await new Promise(r => setTimeout(r, 50))
+      }
+
+      setAuditResults(suspects)
+    } finally {
+      setAuditing(false)
+    }
+  }
+
   return (
     <div className="profile-view">
       <div className="profile-header">
@@ -220,6 +270,36 @@ export default function Profile({ onImport, onFixed }) {
         <p className="recalc-result">
           {recalcResult > 0 ? `✔ Corregidas ${recalcResult} series` : 'Todo estaba correcto, nada que corregir'}
         </p>
+      )}
+
+      <button className="import-entry-btn" onClick={runAudit} disabled={auditing}>
+        <ShieldAlert size={16} />
+        {auditing
+          ? `Revisando ${auditProgress.done}/${auditProgress.total}...`
+          : 'Buscar series mal importadas'}
+      </button>
+
+      {auditResults !== null && !auditing && (
+        auditResults.length === 0 ? (
+          <p className="recalc-result">✔ No se ha encontrado ninguna serie sospechosa</p>
+        ) : (
+          <div className="audit-list">
+            <p className="import-review-summary">
+              {auditResults.length} serie(s) con episodios vistos que no encajan con su estructura real — puede que se importaran mal:
+            </p>
+            {auditResults.map(s => (
+              <button key={s.id} className="audit-item" onClick={() => onSelectShow?.(s)}>
+                {s.poster_path
+                  ? <img src={posterUrl(s.poster_path, 'w92')} alt={s.name} />
+                  : <div className="poster-placeholder-row">—</div>}
+                <div>
+                  <strong>{s.name}</strong>
+                  <span>{s.invalid} episodio(s) no encajan</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        )
       )}
 
       <button className="import-entry-btn" onClick={onImport}>

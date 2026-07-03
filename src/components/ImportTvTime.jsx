@@ -175,6 +175,7 @@ export default function ImportTvTime({ onImported }) {
     let importedShows = 0
     let importedEpisodes = 0
     let alreadyExisted = 0
+    const mismatched = []
 
     for (const m of toImport) {
       try {
@@ -193,6 +194,17 @@ export default function ImportTvTime({ onImported }) {
         }
 
         const details = await getShowDetails(m.chosenId)
+
+        // Comprobación de seguridad: TMDB a veces fusiona/redirige IDs
+        // duplicados. Si el id que devuelve TMDB ya no coincide con el que
+        // elegiste en la revisión, algo cambió por debajo — no se importa
+        // a ciegas, se marca para que la busques manualmente.
+        if (details.id !== m.chosenId) {
+          mismatched.push(m.title)
+          setImportProgress(p => ({ ...p, done: p.done + 1 }))
+          continue
+        }
+
         const totalEpisodes = computeTotalEpisodes(details)
 
         const watchedDates = m.episodes.map(e => new Date(e.watched_at)).filter(d => !isNaN(d))
@@ -255,6 +267,7 @@ export default function ImportTvTime({ onImported }) {
       importedShows,
       importedEpisodes,
       alreadyExisted,
+      mismatched,
       skipped: matches.length - toImport.length,
     })
     setStep('done')
@@ -381,6 +394,12 @@ export default function ImportTvTime({ onImported }) {
           <p>Se han importado <strong>{summary.importedShows}</strong> series y <strong>{summary.importedEpisodes}</strong> episodios vistos.</p>
           {summary.alreadyExisted > 0 && <p>{summary.alreadyExisted} series ya las tenías en tu lista — no se han tocado.</p>}
           {summary.skipped > 0 && <p>({summary.skipped} series descartadas)</p>}
+          {summary.mismatched?.length > 0 && (
+            <div className="mismatch-warning">
+              <p>⚠ {summary.mismatched.length} serie(s) se saltaron por seguridad (TMDB cambió el ID por debajo — añádelas manualmente desde "Buscar"):</p>
+              <ul>{summary.mismatched.map(t => <li key={t}>{t}</li>)}</ul>
+            </div>
+          )}
         </div>
       )}
     </div>

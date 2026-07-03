@@ -789,3 +789,34 @@ main {
 .modal-cancel-btn:hover { background: var(--surface-3); color: var(--text); }
 .modal-confirm-btn { background: var(--accent); color: var(--accent-ink); }
 .modal-danger-btn { background: var(--danger); color: white; }
+
+/* ---------- Audit (series mal importadas) ---------- */
+.audit-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.audit-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--danger);
+  border-radius: var(--radius-sm);
+  padding: 8px;
+  text-align: left;
+  width: 100%;
+}
+.audit-item:hover { background: var(--surface-2); transform: none; }
+.audit-item img { width: 40px; border-radius: 5px; aspect-ratio: 2/3; object-fit: cover; flex-shrink: 0; }
+.audit-item strong { display: block; font-family: var(--font-display); font-size: 0.85rem; }
+.audit-item span { color: var(--danger); font-size: 0.72rem; }
+
+.mismatch-warning {
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  margin-top: 16px;
+  font-size: 0.8rem;
+}
+.mismatch-warning p { color: var(--text); margin: 0 0 6px; }
+.mismatch-warning ul { margin: 0; padding-left: 18px; color: var(--text-dim); }
