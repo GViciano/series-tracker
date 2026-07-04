@@ -33,7 +33,8 @@ export default function Auth() {
 
   return (
     <div className="auth-container">
-      <h1>🎬 Series Tracker</h1>
+      <img src={`${import.meta.env.BASE_URL}tv-icon.svg`} alt="" className="auth-logo" />
+      <h1>Series Tracker</h1>
       <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem', marginTop: 8 }}>
         Lleva el control de lo que ves, episodio a episodio
       </p>

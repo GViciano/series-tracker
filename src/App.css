@@ -85,6 +85,7 @@ input:focus, select:focus, button:focus-visible {
   border-radius: var(--radius-lg);
   text-align: center;
 }
+.auth-logo { width: 64px; height: 64px; margin-bottom: 4px; }
 .auth-container h1 { font-size: 1.6rem; letter-spacing: -0.02em; }
 .auth-form { display: flex; flex-direction: column; gap: 12px; margin-top: 24px; }
 .auth-form button { padding: 12px; margin-top: 4px; }
@@ -120,11 +121,7 @@ input:focus, select:focus, button:focus-visible {
   align-items: center;
   gap: 8px;
 }
-.app-header .brand-dot {
-  width: 9px; height: 9px; border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 10px var(--accent);
-}
+.brand-icon { width: 26px; height: 26px; flex-shrink: 0; }
 .header-right { display: flex; align-items: center; gap: 10px; }
 .header-right .user-email { color: var(--text-faint); font-size: 0.78rem; display: none; }
 @media (min-width: 640px) {

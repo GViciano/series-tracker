@@ -55,7 +55,7 @@ function AppInner() {
           </button>
         ) : (
           <>
-            <h1><span className="brand-dot" /> Series Tracker</h1>
+            <h1><img src={`${import.meta.env.BASE_URL}tv-icon.svg`} alt="" className="brand-icon" /> Series Tracker</h1>
             <button
               className="avatar-btn"
               onClick={(e) => { e.stopPropagation(); setSelectedShow(null); setShowProfile(true) }}
