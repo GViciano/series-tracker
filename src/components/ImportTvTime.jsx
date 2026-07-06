@@ -336,7 +336,15 @@ export default function ImportTvTime({ onImported }) {
             <ol className="howto-steps">
               <li>
                 Instala la extensión <strong>"TV Time Data Extractor"</strong> en
-                Chrome (búscala en la Chrome Web Store)
+                Chrome:{' '}
+                <a
+                  href="https://chromewebstore.google.com/detail/tv-time-data-extractor/jmpoblamjmpbhnggdihhcoejomkpkgpp"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="howto-link"
+                >
+                  abrir en la Chrome Web Store ↗
+                </a>
               </li>
               <li>
                 Abre <span className="howto-code">app.tvtime.com</span> en el
