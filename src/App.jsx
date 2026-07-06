@@ -85,7 +85,12 @@ function AppInner() {
         ) : tab === 'search' ? (
           <ShowSearch onAdded={() => { setRefreshKey(k => k + 1); goToTab('mine') }} />
         ) : (
-          <ShowList refreshKey={refreshKey} onSelect={setSelectedShow} />
+          <ShowList
+            refreshKey={refreshKey}
+            onSelect={setSelectedShow}
+            onImport={() => setShowImport(true)}
+            onGoSearch={() => goToTab('search')}
+          />
         )}
       </main>
 

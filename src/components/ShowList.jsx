@@ -11,7 +11,7 @@ const STATUS_LABELS = {
   dropped: 'Abandonada',
 }
 
-export default function ShowList({ refreshKey, onSelect }) {
+export default function ShowList({ refreshKey, onSelect, onImport, onGoSearch }) {
   const { user } = useAuth()
   const [shows, setShows] = useState([])
   const [watchedCounts, setWatchedCounts] = useState({})
@@ -101,12 +101,24 @@ export default function ShowList({ refreshKey, onSelect }) {
       </div>
 
       {filteredSorted.length === 0 && (
-        <div className="empty-state">
-          <span className="emoji">🎬</span>
-          {shows.length === 0
-            ? 'Aún no has añadido ninguna serie. Ve a "Buscar" para empezar.'
-            : 'No hay series en esta categoría.'}
-        </div>
+        shows.length === 0 ? (
+          <div className="empty-state onboarding">
+            <span className="emoji">🎬</span>
+            <p>Aún no has añadido ninguna serie.</p>
+            <p className="onboarding-hint">¿Ya usabas TV Time? Trae tu historial de una vez en vez de añadir serie a serie.</p>
+            <button className="onboarding-import-btn" onClick={onImport}>
+              Importar desde TV Time
+            </button>
+            <button className="onboarding-secondary-btn" onClick={onGoSearch}>
+              O empezar buscando series manualmente
+            </button>
+          </div>
+        ) : (
+          <div className="empty-state">
+            <span className="emoji">🎬</span>
+            No hay series en esta categoría.
+          </div>
+        )
       )}
 
       {viewMode === 'grid' ? (

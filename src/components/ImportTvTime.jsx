@@ -321,11 +321,42 @@ export default function ImportTvTime({ onImported }) {
             <span className="emoji">📥</span>
             <h3>Importar desde TV Time</h3>
             <p>
-              Sube el CSV que exportaste de TV Time. Buscaremos cada serie en TMDB
-              automáticamente y, si hay ambigüedad, comprobaremos las temporadas y
-              episodios reales para elegir la coincidencia correcta.
+              Buscaremos cada serie en TMDB automáticamente y, si hay ambigüedad,
+              comprobaremos las temporadas y episodios reales para elegir la
+              coincidencia correcta.
             </p>
           </div>
+
+          <div className="howto-box">
+            <p className="howto-title">Cómo conseguir el archivo CSV</p>
+            <p className="howto-note">
+              TV Time no tiene botón propio de exportar — hace falta una extensión
+              gratuita del navegador que lee tu cuenta y genera el archivo.
+            </p>
+            <ol className="howto-steps">
+              <li>
+                Instala la extensión <strong>"TV Time Data Extractor"</strong> en
+                Chrome (búscala en la Chrome Web Store)
+              </li>
+              <li>
+                Abre <span className="howto-code">app.tvtime.com</span> en el
+                navegador e inicia sesión con tu cuenta
+              </li>
+              <li>
+                Haz clic en el icono de la extensión (arriba a la derecha del
+                navegador) y pulsa <strong>"Export to CSV"</strong>
+              </li>
+              <li>
+                Se descargará un archivo llamado algo como{' '}
+                <span className="howto-code">tv-time-export.csv</span> — guárdalo
+                en un sitio fácil de encontrar
+              </li>
+              <li>
+                Vuelve aquí y pulsa el botón de abajo para seleccionar ese archivo
+              </li>
+            </ol>
+          </div>
+
           <input
             ref={fileInputRef}
             type="file"
